@@ -1,28 +1,56 @@
-// PracticarL offline conversation engine: deterministic, no generative AI.
+// PracticarL Stage 1.1: offline guided conversation with vocabulary repair.
+// No API, no generative AI. Only curated vocabulary clues can be guessed.
 window.PracticarEngine=(()=>{
-const scenarios=[
-{id:"weekend",level:1,steps:[{q:"¿Qué te gusta hacer los fines de semana?",en:"What do you like to do on weekends?",branches:[{keys:["leer","libro","lectura"],q:"¿Qué tipo de libros te gustan?",en:"What kind of books do you like?"},{keys:["musica","escuchar","cantar"],q:"¿Qué música escuchas normalmente?",en:"What music do you normally listen to?"},{keys:["amigo","familia","visitar"],q:"¿Adónde suelen ir juntos?",en:"Where do you usually go together?"}],fallback:{q:"¡Qué interesante! ¿Por qué te gusta?",en:"How interesting! Why do you like it?"}},{q:"¿Desde cuándo te gusta esa actividad?",en:"How long have you liked that activity?",branches:[],fallback:{q:"¡Qué bien! ¿Te gustaría hacerlo más a menudo?",en:"Great! Would you like to do it more often?"}}]},
-{id:"restaurant",level:1,steps:[{q:"¡Bienvenido! ¿Qué te gustaría comer?",en:"Welcome! What would you like to eat?",branches:[{keys:["precio","cuanto","cuesta","costar"],q:"La sopa cuesta seis euros. ¿Quieres pedirla?",en:"The soup costs six euros. Would you like to order it?"},{keys:["ensalada","vegetariano","verdura"],q:"Tenemos una ensalada fresca. ¿Quieres algo de beber?",en:"We have a fresh salad. Would you like something to drink?"},{keys:["agua","beber","jugo","zumo","cafe"],q:"Claro. ¿También quieres algo para comer?",en:"Of course. Would you also like something to eat?"}],fallback:{q:"Perfecto. ¿Quieres algo para beber?",en:"Perfect. Would you like something to drink?"}},{q:"¿Quieres algo más?",en:"Would you like anything else?",branches:[{keys:["cuenta","pagar","termin"],q:"Por supuesto. Aquí tienes la cuenta.",en:"Of course. Here's the bill."}],fallback:{q:"Muy bien. ¡Que aproveche!",en:"Very well. Enjoy your meal!"}}]},
-{id:"travel",level:2,steps:[{q:"Si pudieras viajar a cualquier país, ¿adónde irías?",en:"If you could travel to any country, where would you go?",branches:[{keys:["espana","madrid","barcelona"],q:"¿Qué ciudad española te gustaría conocer primero?",en:"Which Spanish city would you like to visit first?"},{keys:["mexico","peru","colombia","argentina"],q:"¿Qué te atrae más de ese país: la cultura o la comida?",en:"What attracts you most about that country: its culture or food?"}],fallback:{q:"¿Qué te llama la atención de ese destino?",en:"What interests you about that destination?"}},{q:"¿Con quién te gustaría viajar?",en:"Who would you like to travel with?",branches:[],fallback:{q:"¿Qué actividad harías durante tu primer día?",en:"What activity would you do on your first day?"}}]},
-{id:"work",level:2,steps:[{q:"Cuéntame sobre algo que aprendiste recientemente.",en:"Tell me about something you learned recently.",branches:[{keys:["espanol","idioma","palabra"],q:"¿Qué parte del español te resulta más difícil?",en:"What part of Spanish do you find most difficult?"},{keys:["trabajo","escuela","clase"],q:"¿Cómo podrías utilizar lo aprendido en tu vida diaria?",en:"How could you use what you learned in everyday life?"}],fallback:{q:"¿Qué fue lo más sorprendente de esa experiencia?",en:"What was the most surprising part of that experience?"}},{q:"¿Te gustaría seguir aprendiendo sobre ese tema?",en:"Would you like to keep learning about that topic?",branches:[],fallback:{q:"¿Qué te gustaría aprender después?",en:"What would you like to learn next?"}}]},
-{id:"plans",level:3,steps:[{q:"Si tuvieras un mes libre, ¿cómo aprovecharías ese tiempo?",en:"If you had a month off, how would you use that time?",branches:[{keys:["viajar","viaje","visitar"],q:"¿Cómo decidirías qué lugares visitar primero?",en:"How would you decide which places to visit first?"},{keys:["estudiar","aprender","practicar"],q:"¿Qué estrategias utilizarías para mantener la motivación?",en:"What strategies would you use to stay motivated?"}],fallback:{q:"¿Qué ventajas tendría ese plan para ti?",en:"What advantages would that plan have for you?"}},{q:"¿Qué cambiarías si solo tuvieras una semana?",en:"What would you change if you only had one week?",branches:[],fallback:{q:"¿Crees que podrías llevar a cabo ese plan algún día?",en:"Do you think you could carry out that plan someday?"}}]}
+const vocabulary=[
+{en:["bear"],es:"oso",clues:["animal","grande","peludo","bosque","marron","pelo"]},
+{en:["library"],es:"biblioteca",clues:["libro","leer","estudiar","prestar","silencio"]},
+{en:["squirrel"],es:"ardilla",clues:["animal","pequeno","cola","arbol","nuez","nueces"]},
+{en:["umbrella"],es:"paraguas",clues:["lluvia","mojar","agua","abrir","cabeza"]},
+{en:["grocery","groceries"],es:"comestibles",clues:["comprar","comida","tienda","supermercado","alimento"]},
+{en:["hiking"],es:"senderismo",clues:["caminar","montana","bosque","naturaleza","sendero"]},
+{en:["appointment"],es:"cita",clues:["doctor","medico","hora","reunion","reservar"]},
+{en:["neighbor"],es:"vecino",clues:["persona","casa","vive","cerca","lado"]},
+{en:["receipt"],es:"recibo",clues:["papel","pagar","compra","precio","tienda"]},
+{en:["wallet"],es:"cartera",clues:["dinero","tarjeta","bolsillo","guardar"]},
+{en:["backpack"],es:"mochila",clues:["bolsa","espalda","llevar","libros","escuela"]},
+{en:["ticket"],es:"boleto",clues:["tren","autobus","entrada","viaje","comprar"]},
+{en:["beach"],es:"playa",clues:["mar","arena","agua","nadar","sol"]},
+{en:["movie"],es:"película",clues:["cine","ver","pantalla","actores","historia"]},
+{en:["garden"],es:"jardín",clues:["plantas","flores","tierra","crecer","casa"]},
+{en:["forest"],es:"bosque",clues:["arboles","naturaleza","animales","caminar"]},
+{en:["busy"],es:"ocupado",clues:["trabajo","tiempo","muchas","cosas","hacer"]},
+{en:["excited"],es:"emocionado",clues:["feliz","alegre","esperar","ganas"]},
+{en:["tired"],es:"cansado",clues:["dormir","sueno","energia","trabajo"]},
+{en:["breakfast"],es:"desayuno",clues:["comer","manana","cafe","pan","huevo"]}
 ];
 const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zñ\s]/g," ").replace(/\s+/g," ").trim();
-const goodbyes=/\b(adios|hasta luego|hasta pronto|nos vemos|chao|chau|bye|goodbye)\b/;
-const unclear=/^(si|no|ok|vale|bien|hola|gracias|quizas|tal vez|no se|nose|what|huh|que|porque|por que)$/;
-const stopWords=new Set(["yo","tu","el","la","los","las","un","una","de","del","en","a","y","o","que","es","soy","me","mi","por","para","con","se","lo","le","al","muy","mucho","quiero","gusta","hacer","tengo","voy","esta","este","como","porque","si","no","the","i","you","and"]);
-const broadPatterns=[{keys:["comer","comida","pizza","pasta","arroz","pollo","sopa","ensalada"],q:"¿Cuál es tu comida favorita?",en:"What is your favorite food?"},{keys:["trabajar","trabajo","oficina","empleo"],q:"¿Qué es lo que más te gusta de tu trabajo?",en:"What do you like most about your job?"},{keys:["estudiar","escuela","universidad","clase"],q:"¿Qué asignatura te interesa más?",en:"Which subject interests you most?"},{keys:["deporte","futbol","correr","caminar","ejercicio"],q:"¿Con qué frecuencia haces esa actividad?",en:"How often do you do that activity?"}];
-function levelEstimate(text){let tokens=norm(text).split(" ").filter(Boolean);let advanced=/\b(aunque|sin embargo|habria|podria|quisiera|hubiera|fuera|seria|mientras|cuando|ojala|despues)\b/.test(norm(text));return advanced||tokens.length>=17?3:tokens.length>=8?2:1}
-function choose(level,previous){let pool=scenarios.filter(s=>Math.abs(s.level-level)<=1&&s.id!==previous);if(!pool.length)pool=scenarios;return pool[Math.floor(Math.random()*pool.length)]}
-function next(session,text){let n=norm(text);if(goodbyes.test(n))return {end:true,reply:{text:"¡Hasta luego! Gracias por conversar conmigo.",en:"See you later! Thanks for chatting with me."},recognized:true};
-let sc=scenarios.find(x=>x.id===session.scenarioId)||scenarios[0],step=sc.steps[Math.min(session.step||0,sc.steps.length-1)];
-let branch=step.branches.find(b=>b.keys.some(k=>n.split(" ").includes(k))),topic=broadPatterns.find(b=>b.keys.some(k=>n.split(" ").includes(k)));
-let tokens=n.split(" ").filter(x=>x&&!stopWords.has(x));
-let understandable=n.length>=7&&tokens.length>=1&&!unclear.test(n)&&!/^(hello|i dont know|dont know|yes please|no thanks)$/.test(n);
-if(!understandable)return {clarify:true,reply:{text:"No estoy seguro de haber entendido. ¿Puedes decirlo de otra manera en español?",en:"I'm not sure I understood. Can you say it another way in Spanish?"},recognized:false};
-let reply=branch||topic||step.fallback;
-if((session.step||0)>=2)return {end:true,reply:{text:"¡Gracias por la conversación! Ha sido un placer hablar contigo.",en:"Thanks for the conversation! It's been a pleasure talking with you."},recognized:!!(branch||topic)};
-return {reply:{text:reply.q,en:reply.en},recognized:!!(branch||topic),level:levelEstimate(text),end:false}
+const tokens=s=>norm(s).split(" ").filter(Boolean);
+const commonEnglish=new Set("the and but with because for from this that there where when what why how have has had would should could went want need know think like really very just then after before about some any my your our their i you we they he she it is are was were do does did can will not dont didnt its im to of in on at an a or if yes no hello please thanks thank okay sure maybe something someone thing stuff".split(" "));
+const goodbye=/\b(adios|hasta luego|hasta pronto|nos vemos|chao|chau|goodbye|bye)\b/;
+const phases=[
+{label:"Simple present",guide:"Use a short present-tense sentence.",q:["¿Qué te gusta hacer en tu tiempo libre?","¿Qué comida te gusta?","¿Tienes una mascota?","¿Qué haces por la mañana?"],en:["What do you like to do in your free time?","What food do you like?","Do you have a pet?","What do you do in the morning?"]},
+{label:"Everyday details",guide:"Add a place, person, or time.",q:["¿Dónde pasas tiempo con tus amigos?","¿Qué haces después del trabajo o de clase?","¿Qué comes normalmente para cenar?"],en:["Where do you spend time with your friends?","What do you do after work or class?","What do you normally eat for dinner?"]},
+{label:"Simple reasons",guide:"Try adding porque (because).",q:["¿Qué actividad prefieres y por qué?","¿Qué lugar te gusta visitar y por qué?"],en:["Which activity do you prefer and why?","What place do you like to visit and why?"]},
+{label:"Frequency",guide:"Try a veces, siempre, or nunca.",q:["¿Con qué frecuencia cocinas en casa?","¿Con qué frecuencia lees o escuchas música?"],en:["How often do you cook at home?","How often do you read or listen to music?"]},
+{label:"Near future",guide:"Try voy a + infinitive.",q:["¿Qué vas a hacer mañana?","¿Qué vas a hacer este fin de semana?"],en:["What are you going to do tomorrow?","What are you going to do this weekend?"]},
+{label:"Recent past",guide:"Try ayer + a past-tense verb.",q:["¿Qué hiciste ayer?","¿Qué comiste ayer?"],en:["What did you do yesterday?","What did you eat yesterday?"]},
+{label:"Comparisons",guide:"Try más ... que or menos ... que.",q:["¿Prefieres vivir en una ciudad o en un pueblo?","¿Qué estación del año prefieres?"],en:["Do you prefer living in a city or a town?","Which season do you prefer?"]},
+{label:"Longer explanations",guide:"Connect two ideas with porque, pero, or cuando.",q:["¿Cómo sería tu día ideal?","¿Qué te gustaría aprender este año?"],en:["What would your ideal day be like?","What would you like to learn this year?"]}
+];
+function choose(level,previous){let p=phases[Math.max(0,Math.min(phases.length-1,(level||1)-1))];let choices=p.q.map((q,i)=>({id:"p"+level+"-"+i,level:level||1,q,en:p.en[i],guide:p.guide,label:p.label}));return choices.find(c=>c.id!==previous)||choices[0]}
+function detectEnglish(text){let ts=tokens(text);let found=vocabulary.find(v=>v.en.some(w=>ts.includes(w)));if(found)return {word:found.en[0],entry:found};let other=ts.find(w=>commonEnglish.has(w)&&w.length>2);return other?{word:other,entry:null}:null}
+function infer(description,entry){if(!entry)return null;let ts=tokens(description);let hits=entry.clues.filter(w=>ts.includes(norm(w)));return hits.length>=2?entry.es:null}
+function respond(session,text){let n=norm(text),ts=tokens(text);
+if(goodbye.test(n))return {kind:"end",reply:{text:"¡Hasta pronto! Gracias por conversar conmigo.",en:"See you soon! Thanks for chatting with me."}};
+if(session.repair){let repair=session.repair;let answer=infer(text,repair.entry);if(answer){return {kind:"repair-solved",word:repair.word,translation:answer,reply:{text:"¿Quieres decir «"+answer+"»? ¡Muy bien! Puedes usar esa palabra en tu respuesta.",en:"Do you mean “"+answer+"”? Great! You can use that word in your answer."}}}
+if(ts.length>=3)return {kind:"repair-unresolved",reply:{text:"Gracias por explicarlo. No puedo identificar esa palabra con seguridad. Puedes intentar otra descripción en español, o seguir con la conversación.",en:"Thanks for explaining. I can't identify that word confidently. You can try another description in Spanish, or continue the conversation."}};
+return {kind:"repair-unresolved",reply:{text:"¿Puedes describir qué es, cómo es o para qué sirve, usando palabras en español?",en:"Can you describe what it is, what it's like, or what it's used for, using Spanish words?"}}}
+let english=detectEnglish(text);if(english)return {kind:"repair",word:english.word,entry:english.entry,reply:{text:"Has usado «"+english.word+"». ¿Puedes explicar qué significa en español, sin usar la palabra en inglés?",en:"You used “"+english.word+"”. Can you explain what it means in Spanish, without using the English word?"}};
+if(ts.length<2)return {kind:"clarify",reply:{text:"¿Puedes decirme un poco más? Una frase corta está bien.",en:"Can you tell me a little more? A short sentence is fine."}};
+let level=Math.max(1,Math.min(8,session.level||1)),turn=session.turns||0;
+if(turn===0)return {kind:"continue",reply:{text:"¡Gracias! ¿Puedes contarme un poco más?",en:"Thanks! Can you tell me a little more?"},level};
+if(turn===1)return {kind:"continue",reply:{text:level<=2?"¿Y con quién haces eso normalmente?":"¿Qué es lo que más te gusta de eso?",en:level<=2?"And who do you normally do that with?":"What do you like most about that?"},level};
+return {kind:"end",reply:{text:"¡Gracias por compartirlo! Ha sido un placer conversar contigo.",en:"Thanks for sharing! It's been a pleasure chatting with you."},level};
 }
-return {scenarios,choose,next,levelEstimate,norm};
+return {choose,respond,detectEnglish,infer,phases,vocabulary,norm};
 })();
