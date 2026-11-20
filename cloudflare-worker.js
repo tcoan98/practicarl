@@ -41,10 +41,10 @@ const payload={systemInstruction:{parts:[{text:"You are PracticarL, a supportive
 try{
 const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8500);
 let response;try{response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(payload),signal:controller.signal})}finally{clearTimeout(timer)}
-if(!response.ok)return json({error:response.status===429?"Free-tier limit reached; continue offline.":"AI temporarily unavailable; continue offline."},503);
+if(!response.ok){const detail=await response.json().catch(()=>({}));const code=detail.error?.status||"";const category=response.status===400?"Invalid Gemini request":response.status===401||response.status===403?"Gemini key or permissions":response.status===404?"Gemini model not available":response.status===429?"Gemini quota exceeded":"Gemini HTTP "+response.status;return json({error:category+(code?" ("+String(code).slice(0,40)+")":"")},503)}
 const result=await response.json(),output=result.candidates?.[0]?.content?.parts?.map(x=>x.text||"").join("")||"";
 let parsed=JSON.parse(output);if(typeof parsed.reply!=="string"||!parsed.reply.trim()||parsed.reply.length>650||typeof parsed.en!=="string"||parsed.en.length>650)throw Error("Invalid response");
 return json({reply:parsed.reply,en:parsed.en,understood:parsed.understood===true,suggestion:typeof parsed.suggestion==="string"?parsed.suggestion.slice(0,80):"",end:parsed.end===true});
-}catch{return json({error:"AI unavailable; continue offline."},503)}
+}catch(e){const category=e?.name==="AbortError"?"Gemini request timed out":e instanceof SyntaxError?"Gemini returned invalid JSON":"Gemini response processing failed";return json({error:category},503)}
 }
 };
