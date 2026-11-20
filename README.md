@@ -43,3 +43,7 @@ The Worker only accepts browser requests with origin `https://tcoan98.github.io`
 The code uses Gemini `gemini-2.5-flash-lite`; model availability and free-tier quotas can change. If a call fails, PracticarL falls back to offline responses. No automatic paid billing is configured by this code, but review your Google project billing settings independently.
 
 **Privacy:** AI-enabled messages and recent conversation context are transmitted to Google's Gemini API. Do not submit sensitive information. The local username is not sent by the frontend integration. Gemini free-tier data policies may allow data use for product improvement.
+
+### Natural conversation update
+
+With AI enabled, Gemini now handles each conversational reply to preserve context, accept imperfect/mixed-language Spanish, and recast vocabulary naturally. This intentionally uses more API requests than the earlier strict fallback approach (typically one per user turn). The existing offline engine remains a fallback when AI is disabled or unavailable. The best-effort 12-request-per-IP daily limit still applies and may interrupt longer conversations. **After repository changes, manually redeploy the latest `cloudflare-worker.js` in Cloudflare's code editor; GitHub Pages updates do not deploy Worker code.**
