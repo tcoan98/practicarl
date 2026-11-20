@@ -3,7 +3,8 @@
 // This public endpoint uses strict origin checks, request limits and a daily
 // per-IP ceiling. These are abuse deterrents, NOT authentication.
 const ORIGIN="https://tcoan98.github.io";
-const MODEL="gemini-3.1-flash-lite";
+const PREFERRED_MODELS=["gemini-2.5-flash-lite","gemini-2.5-flash","gemini-2.0-flash-lite","gemini-2.0-flash"];
+let cachedModel=null;
 const daily=new Map(); // Best effort per-isolate; NOT a globally durable quota.
 const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","Access-Control-Allow-Origin":ORIGIN,"Vary":"Origin",...extra}});
 export default {
@@ -11,6 +12,14 @@ async fetch(request,env){
 const url=new URL(request.url),origin=request.headers.get("Origin");
 if(origin!==ORIGIN)return json({error:"Origin not allowed"},403);
 if(request.method==="OPTIONS")return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":ORIGIN,"Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type","Access-Control-Max-Age":"3600","Vary":"Origin"}});
+if(url.pathname==="/diagnostics"&&request.method==="GET"){
+ if(!env.GEMINI_API_KEY)return json({error:"Missing GEMINI_API_KEY secret"},503);
+ try{const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",{headers:{"x-goog-api-key":env.GEMINI_API_KEY}});
+ const body=await r.json().catch(()=>({}));if(!r.ok)return json({error:"Gemini model-list request failed",httpStatus:r.status,status:body.error?.status||"UNKNOWN"},503);
+ const models=(body.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")).map(m=>m.name.replace(/^models\//,""));
+ return json({availableModels:models,preferredAvailable:PREFERRED_MODELS.filter(m=>models.includes(m)),note:"Model listing is scoped to this API key. Do not share credentials."});
+ }catch{return json({error:"Could not reach Gemini model listing"},503)}
+}
 if(url.pathname!=="/fallback"||request.method!=="POST")return json({error:"Not found"},404);
 if(Number(request.headers.get("content-length")||0)>12000)return json({error:"Request too large"},413);
 const ip=request.headers.get("CF-Connecting-IP")||"unknown";
@@ -40,11 +49,13 @@ const rules=[
 const payload={systemInstruction:{parts:[{text:"You are PracticarL, a supportive Spanish conversation practice partner.\n"+rules}]},contents:[{role:"user",parts:[{text:JSON.stringify({task:data.mode,practiceLevel:data.level,originalPrompt:String(data.prompt||"").slice(0,300),conversation:data.history,message:data.message,englishWord:String(data.word||"").slice(0,60)})}]}],generationConfig:{temperature:0.65,maxOutputTokens:350,responseMimeType:"application/json"}};
 try{
 const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8500);
-let response;try{response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(payload),signal:controller.signal})}finally{clearTimeout(timer)}
+let model=cachedModel;
+if(!model){const listing=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",{headers:{"x-goog-api-key":env.GEMINI_API_KEY},signal:controller.signal});if(!listing.ok)return json({error:"Gemini model listing failed ("+listing.status+")"},503);const info=await listing.json();const available=(info.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes("generateContent")).map(m=>m.name.replace(/^models\//,""));model=PREFERRED_MODELS.find(m=>available.includes(m))||available.find(m=>/flash-lite/i.test(m))||available.find(m=>/flash/i.test(m));if(!model)return json({error:"No compatible Gemini generation model available for this API key"},503);cachedModel=model}
+let response;try{response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify(payload),signal:controller.signal})}finally{clearTimeout(timer)}
 if(!response.ok){const detail=await response.json().catch(()=>({}));const code=detail.error?.status||"";const category=response.status===400?"Invalid Gemini request":response.status===401||response.status===403?"Gemini key or permissions":response.status===404?"Gemini model not available":response.status===429?"Gemini quota exceeded":"Gemini HTTP "+response.status;return json({error:category+(code?" ("+String(code).slice(0,40)+")":"")},503)}
 const result=await response.json(),output=result.candidates?.[0]?.content?.parts?.map(x=>x.text||"").join("")||"";
 let parsed=JSON.parse(output);if(typeof parsed.reply!=="string"||!parsed.reply.trim()||parsed.reply.length>650||typeof parsed.en!=="string"||parsed.en.length>650)throw Error("Invalid response");
-return json({reply:parsed.reply,en:parsed.en,understood:parsed.understood===true,suggestion:typeof parsed.suggestion==="string"?parsed.suggestion.slice(0,80):"",end:parsed.end===true});
+return json({model,reply:parsed.reply,en:parsed.en,understood:parsed.understood===true,suggestion:typeof parsed.suggestion==="string"?parsed.suggestion.slice(0,80):"",end:parsed.end===true});
 }catch(e){const category=e?.name==="AbortError"?"Gemini request timed out":e instanceof SyntaxError?"Gemini returned invalid JSON":"Gemini response processing failed";return json({error:category},503)}
 }
 };
