@@ -3,7 +3,7 @@
 // This public endpoint uses strict origin checks, request limits and a daily
 // per-IP ceiling. These are abuse deterrents, NOT authentication.
 const ORIGIN="https://tcoan98.github.io";
-const MODEL="gemini-2.5-flash-lite";
+const MODEL="gemini-3.1-flash-lite";
 const daily=new Map(); // Best effort per-isolate; NOT a globally durable quota.
 const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","Access-Control-Allow-Origin":ORIGIN,"Vary":"Origin",...extra}});
 export default {
