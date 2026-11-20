@@ -42,7 +42,7 @@ for(const k of daily.keys())if(!k.startsWith(date+":"))daily.delete(k);
 const count=daily.get(id)||0;
 if(count>=12)return json({error:"Daily AI limit reached. Continue offline."},429);
 let data;try{const raw=await request.text();if(raw.length>12000)throw Error("too large");data=JSON.parse(raw)}catch{return json({error:"Invalid request"},400)}
-if(!["interpret","word","continue","review"].includes(data.mode)||typeof data.message!=="string"||data.message.length>500||!Array.isArray(data.history)||data.history.length>8||data.history.some(m=>!m||!["user","assistant"].includes(m.role)||typeof m.text!=="string"||m.text.length>500)||!Number.isInteger(data.level)||data.level<1||data.level>8)return json({error:"Invalid input"},400);
+if(!["interpret","word","continue","review"].includes(data.mode)||typeof data.message!=="string"||data.message.length>500||!Array.isArray(data.history)||data.history.length>16||data.history.some(m=>!m||!["user","assistant"].includes(m.role)||typeof m.text!=="string"||m.text.length>500)||!Number.isInteger(data.level)||data.level<1||data.level>8)return json({error:"Invalid input"},400);
 if(!env.GEMINI_API_KEY)return json({error:"AI unavailable; continue offline."},503);
 daily.set(id,count+1);
 const rules=[
