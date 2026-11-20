@@ -2,6 +2,12 @@
   "name": "practicarl-api",
   "main": "cloudflare-worker.js",
   "compatibility_date": "2026-11-19",
-  "workers_dev": true
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "practicarl",
+      "database_id": "34820ed0-b46c-4006-b159-18603051990d"
+    }
+  ]
 }
-// Deployment verification: GitHub-triggered Cloudflare Workers Builds test, 2026-11-19.
