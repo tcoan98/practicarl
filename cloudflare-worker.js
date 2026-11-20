@@ -3,7 +3,7 @@
 // This public endpoint uses strict origin checks, request limits and a daily
 // per-IP ceiling. These are abuse deterrents, NOT authentication.
 const ORIGIN="https://tcoan98.github.io";
-const PREFERRED_MODELS=["gemini-2.5-flash-lite","gemini-2.5-flash","gemini-2.0-flash-lite","gemini-2.0-flash"];
+const PREFERRED_MODELS=["gemini-3.5-flash-lite","gemini-3.1-flash-lite","gemini-flash-lite-latest","gemini-3.5-flash"];
 let cachedModel=null;
 const daily=new Map(); // Best effort per-isolate; NOT a globally durable quota.
 const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","Access-Control-Allow-Origin":ORIGIN,"Vary":"Origin",...extra}});
@@ -25,7 +25,7 @@ if(url.pathname==="/test-gemini"&&request.method==="POST"){
  const ip=request.headers.get("CF-Connecting-IP")||"unknown",day=new Date().toISOString().slice(0,10),key=day+":"+ip;
  const used=daily.get(key)||0;if(used>=12)return json({ok:false,error:"Daily AI limit reached"},429);
  daily.set(key,used+1);
- const model="gemini-2.5-flash-lite";
+ const model="gemini-3.5-flash-lite";
  try{
   const response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify({contents:[{parts:[{text:"Reply with the single word hola."}]}],generationConfig:{maxOutputTokens:60}})});
   const result=await response.json().catch(()=>({}));
