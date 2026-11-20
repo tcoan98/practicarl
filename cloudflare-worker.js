@@ -20,6 +20,20 @@ if(url.pathname==="/diagnostics"&&request.method==="GET"){
  return json({availableModels:models,preferredAvailable:PREFERRED_MODELS.filter(m=>models.includes(m)),note:"Model listing is scoped to this API key. Do not share credentials."});
  }catch{return json({error:"Could not reach Gemini model listing"},503)}
 }
+if(url.pathname==="/test-gemini"&&request.method==="POST"){
+ if(!env.GEMINI_API_KEY)return json({ok:false,error:"Missing GEMINI_API_KEY secret"},503);
+ const ip=request.headers.get("CF-Connecting-IP")||"unknown",day=new Date().toISOString().slice(0,10),key=day+":"+ip;
+ const used=daily.get(key)||0;if(used>=12)return json({ok:false,error:"Daily AI limit reached"},429);
+ daily.set(key,used+1);
+ const model="gemini-2.5-flash-lite";
+ try{
+  const response=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":env.GEMINI_API_KEY},body:JSON.stringify({contents:[{parts:[{text:"Reply with the single word hola."}]}],generationConfig:{maxOutputTokens:60}})});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)return json({ok:false,model,httpStatus:response.status,status:result.error?.status||"UNKNOWN",message:String(result.error?.message||"Google did not provide details").slice(0,450)},200);
+  const answer=result.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+  return json({ok:true,model,answer:answer.slice(0,160)||"(No text returned)",note:"Gemini generation succeeded"});
+ }catch(e){return json({ok:false,model,error:"Network request failed",detail:String(e?.name||"unknown")},200)}
+}
 if(url.pathname!=="/fallback"||request.method!=="POST")return json({error:"Not found"},404);
 if(Number(request.headers.get("content-length")||0)>12000)return json({error:"Request too large"},413);
 const ip=request.headers.get("CF-Connecting-IP")||"unknown";
