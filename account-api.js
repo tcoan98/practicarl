@@ -4,7 +4,7 @@ const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers
 const bytesToHex=buf=>Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,"0")).join("");
 const digest=async value=>bytesToHex(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value)));
 const random=()=>{const b=crypto.getRandomValues(new Uint8Array(32));return Array.from(b,x=>x.toString(16).padStart(2,"0")).join("")};
-const passhash=async(password,salt)=>{const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);return bytesToHex(await crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode(salt),iterations:160000,hash:"SHA-256"},key,256))};
+const passhash=async(password,salt,iterations=60000)=>{const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);return bytesToHex(await crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode(salt),iterations,hash:"SHA-256"},key,256))};
 const constantTime=(a,b)=>{if(a.length!==b.length)return false;let diff=0;for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);return diff===0};
 const cleanText=(v,n)=>String(v||"").slice(0,n);
 function compact(input){
@@ -32,11 +32,11 @@ export async function accountRoute(request,env,path){
  let a=await db.prepare("SELECT * FROM accounts WHERE username=?").bind(username).first();stage="password_processing";
  if(path==="/auth/register"){
  if(a)return reply({error:"That username is already registered. Sign in instead, or choose another."},409);
- const id=crypto.randomUUID(),salt=random(),hash=await passhash(password,salt);stage="account_insert";
+ const id=crypto.randomUUID(),salt="v2:"+random(),hash=await passhash(password,salt,60000);stage="account_insert";
  try{await db.prepare("INSERT INTO accounts (id,username,salt,password_hash,created_at) VALUES (?,?,?,?,?)").bind(id,username,salt,hash,new Date().toISOString()).run()}catch{return reply({error:"Username unavailable"},409)}
  a={id,username};stage="profile_insert";await db.prepare("INSERT INTO profiles (account_id,revision,data) VALUES (?,0,?)").bind(id,JSON.stringify(compact({}))).run();
  }else{
- const calculated=await passhash(password,a?.salt||"placeholder-salt");
+ const calculated=await passhash(password,a?.salt||"v2:placeholder-salt",a?.salt?.startsWith("v2:")||!a?60000:160000);
  if(!a||!constantTime(calculated,a.password_hash)){const now=Date.now(),old=loginFailures.get(k);loginFailures.set(k,{count:old&&old.until>now?old.count+1:1,until:now+900000});return reply({error:"Incorrect username or password"},401)}
  }
  loginFailures.delete(k);stage="session_insert";const token=random(),tokenHash=await digest(token);await db.prepare("INSERT INTO sessions (token_hash,account_id,expires_at) VALUES (?,?,?)").bind(tokenHash,a.id,Date.now()+30*86400000).run();
