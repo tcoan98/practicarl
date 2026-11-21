@@ -22,8 +22,8 @@ export async function accountRoute(request,env,path){
  if(request.method!=="POST")return reply({error:"Method not allowed"},405);
  if(Number(request.headers.get("content-length")||0)>350000)return reply({error:"Request too large"},413);
  let data;try{const raw=await request.text();if(raw.length>350000)throw Error();data=JSON.parse(raw)}catch{return reply({error:"Invalid request"},400)}
- try{
- const db=env.DB;await tables(db);
+ let stage="database_setup";try{
+ const db=env.DB;await tables(db);stage="account_operation";
  if(path==="/auth/register"||path==="/auth/login"){
  const username=String(data.username||"").trim().toLowerCase(),password=data.password;
  if(!/^[a-z0-9_-]{3,35}$/.test(username)||typeof password!=="string"||password.length<6||password.length>128)return reply({error:"Use a 3–35 character username (letters, numbers, _ or -) and a password of at least 6 characters."},400);
@@ -54,5 +54,5 @@ export async function accountRoute(request,env,path){
  return reply({revision:revision+1});
  }
  return reply({error:"Not found"},404);
- }catch(e){return reply({error:"Account service unavailable. Please try again later."},503)}
+ }catch(e){console.error("PracticarL account failure",stage,e?.name||"Error",String(e?.message||"").slice(0,180));return reply({error:stage==="database_setup"?"Account database initialization failed. Check the D1 binding and database permissions.":"Account request failed on the server. Please try again later.",code:stage==="database_setup"?"DATABASE_SETUP_FAILED":"ACCOUNT_OPERATION_FAILED"},503)}
 }
