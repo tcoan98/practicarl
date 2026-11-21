@@ -23,29 +23,29 @@ export async function accountRoute(request,env,path){
  if(Number(request.headers.get("content-length")||0)>350000)return reply({error:"Request too large"},413);
  let data;try{const raw=await request.text();if(raw.length>350000)throw Error();data=JSON.parse(raw)}catch{return reply({error:"Invalid request"},400)}
  let stage="database_setup";try{
- const db=env.DB;await tables(db);stage="account_operation";
+ const db=env.DB;await tables(db);stage="account_lookup";
  if(path==="/auth/register"||path==="/auth/login"){
  const username=String(data.username||"").trim().toLowerCase(),password=data.password;
  if(!/^[a-z0-9_-]{3,35}$/.test(username)||typeof password!=="string"||password.length<6||password.length>128)return reply({error:"Use a 3–35 character username (letters, numbers, _ or -) and a password of at least 6 characters."},400);
  const ip=request.headers.get("CF-Connecting-IP")||"unknown",k=ip+":"+username,entry=loginFailures.get(k);
  if(entry&&entry.until>Date.now()&&entry.count>=6)return reply({error:"Too many sign-in attempts. Try again in 15 minutes."},429);
- let a=await db.prepare("SELECT * FROM accounts WHERE username=?").bind(username).first();
+ let a=await db.prepare("SELECT * FROM accounts WHERE username=?").bind(username).first();stage="password_processing";
  if(path==="/auth/register"){
  if(a)return reply({error:"That username is already registered. Sign in instead, or choose another."},409);
- const id=crypto.randomUUID(),salt=random(),hash=await passhash(password,salt);
+ const id=crypto.randomUUID(),salt=random(),hash=await passhash(password,salt);stage="account_insert";
  try{await db.prepare("INSERT INTO accounts (id,username,salt,password_hash,created_at) VALUES (?,?,?,?,?)").bind(id,username,salt,hash,new Date().toISOString()).run()}catch{return reply({error:"Username unavailable"},409)}
- a={id,username};await db.prepare("INSERT INTO profiles (account_id,revision,data) VALUES (?,0,?)").bind(id,JSON.stringify(compact({}))).run();
+ a={id,username};stage="profile_insert";await db.prepare("INSERT INTO profiles (account_id,revision,data) VALUES (?,0,?)").bind(id,JSON.stringify(compact({}))).run();
  }else{
  const calculated=await passhash(password,a?.salt||"placeholder-salt");
  if(!a||!constantTime(calculated,a.password_hash)){const now=Date.now(),old=loginFailures.get(k);loginFailures.set(k,{count:old&&old.until>now?old.count+1:1,until:now+900000});return reply({error:"Incorrect username or password"},401)}
  }
- loginFailures.delete(k);const token=random(),tokenHash=await digest(token);await db.prepare("INSERT INTO sessions (token_hash,account_id,expires_at) VALUES (?,?,?)").bind(tokenHash,a.id,Date.now()+30*86400000).run();
+ loginFailures.delete(k);stage="session_insert";const token=random(),tokenHash=await digest(token);await db.prepare("INSERT INTO sessions (token_hash,account_id,expires_at) VALUES (?,?,?)").bind(tokenHash,a.id,Date.now()+30*86400000).run();
  return reply({token,username:a.username});
  }
- const account=await accountFromToken(request,db);if(!account)return reply({error:"Session expired. Sign in again."},401);
+ stage="session_lookup";const account=await accountFromToken(request,db);if(!account)return reply({error:"Session expired. Sign in again."},401);
  if(path==="/auth/logout"){const hash=await digest((request.headers.get("Authorization")||"").slice(7));await db.prepare("DELETE FROM sessions WHERE token_hash=?").bind(hash).run();return reply({ok:true})}
- if(path==="/sync/pull"){const row=await db.prepare("SELECT revision,data FROM profiles WHERE account_id=?").bind(account.id).first();return reply({revision:row?.revision||0,profile:JSON.parse(row?.data||"{}")})}
- if(path==="/sync/push"){
+ if(path==="/sync/pull"){stage="profile_read";const row=await db.prepare("SELECT revision,data FROM profiles WHERE account_id=?").bind(account.id).first();return reply({revision:row?.revision||0,profile:JSON.parse(row?.data||"{}")})}
+ if(path==="/sync/push"){stage="profile_write";
  const revision=Number(data.revision);if(!Number.isSafeInteger(revision)||revision<0)return reply({error:"Invalid revision"},400);
  let profile;try{profile=compact(data.profile)}catch{return reply({error:"Invalid profile"},400)}
  const payload=JSON.stringify(profile);if(payload.length>250000)return reply({error:"Profile exceeds 250 KB. Export a backup and contact the site owner."},413);
@@ -54,5 +54,5 @@ export async function accountRoute(request,env,path){
  return reply({revision:revision+1});
  }
  return reply({error:"Not found"},404);
- }catch(e){console.error("PracticarL account failure",stage,e?.name||"Error",String(e?.message||"").slice(0,180));return reply({error:stage==="database_setup"?"Account database initialization failed. Check the D1 binding and database permissions.":"Account request failed on the server. Please try again later.",code:stage==="database_setup"?"DATABASE_SETUP_FAILED":"ACCOUNT_OPERATION_FAILED"},503)}
+ }catch(e){console.error("PracticarL account failure",stage,e?.name||"Error",String(e?.message||"").slice(0,180));return reply({error:stage==="database_setup"?"Account database initialization failed. Check the D1 binding and database permissions.":"Account request failed during "+stage.replaceAll("_"," ")+". Please try again later.",code:stage==="database_setup"?"DATABASE_SETUP_FAILED":"ACCOUNT_OPERATION_FAILED",stage},503)}
 }
