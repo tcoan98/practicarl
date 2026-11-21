@@ -1,3 +1,4 @@
+import { accountRoute } from "./account-api.js";
 // PracticarL AI fallback — Cloudflare Worker (ES module).
 // Configure GEMINI_API_KEY as an encrypted Worker secret.
 // This public endpoint uses strict origin checks, request limits and a daily
@@ -11,6 +12,7 @@ export default {
 async fetch(request,env){
 const url=new URL(request.url),origin=request.headers.get("Origin");
 if(origin!==ORIGIN)return json({error:"Origin not allowed"},403);
+if(["/auth/register","/auth/login","/auth/logout","/sync/pull","/sync/push"].includes(url.pathname)){if(request.method==="OPTIONS")return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":ORIGIN,"Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization","Access-Control-Max-Age":"3600","Vary":"Origin"}});return accountRoute(request,env,url.pathname)}
 if(request.method==="OPTIONS")return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":ORIGIN,"Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type","Access-Control-Max-Age":"3600","Vary":"Origin"}});
 if(url.pathname==="/diagnostics"&&request.method==="GET"){
  if(!env.GEMINI_API_KEY)return json({error:"Missing GEMINI_API_KEY secret"},503);
