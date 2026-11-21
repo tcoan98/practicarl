@@ -26,7 +26,7 @@ export async function accountRoute(request,env,path){
  const db=env.DB;await tables(db);
  if(path==="/auth/register"||path==="/auth/login"){
  const username=String(data.username||"").trim().toLowerCase(),password=data.password;
- if(!/^[a-z0-9_-]{3,35}$/.test(username)||typeof password!=="string"||password.length<12||password.length>128)return reply({error:"Use a 3–35 character username (letters, numbers, _ or -) and a password of at least 12 characters."},400);
+ if(!/^[a-z0-9_-]{3,35}$/.test(username)||typeof password!=="string"||password.length<6||password.length>128)return reply({error:"Use a 3–35 character username (letters, numbers, _ or -) and a password of at least 6 characters."},400);
  const ip=request.headers.get("CF-Connecting-IP")||"unknown",k=ip+":"+username,entry=loginFailures.get(k);
  if(entry&&entry.until>Date.now()&&entry.count>=6)return reply({error:"Too many sign-in attempts. Try again in 15 minutes."},429);
  let a=await db.prepare("SELECT * FROM accounts WHERE username=?").bind(username).first();
