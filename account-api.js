@@ -32,7 +32,7 @@ export async function accountRoute(request,env,path){
  let a=await db.prepare("SELECT * FROM accounts WHERE username=?").bind(username).first();stage="password_processing";
  if(path==="/auth/register"){
  if(a)return reply({error:"That username is already registered. Sign in instead, or choose another."},409);
- const id=crypto.randomUUID(),salt="v2:"+random(),hash=await passhash(password,salt,60000);stage="account_insert";
+ stage="generating_account_id";const id=crypto.randomUUID();stage="generating_salt";const salt="v2:"+random();stage="password_hash_import";let hash;try{hash=await passhash(password,salt,60000)}catch(e){console.error("Password hashing failed",e?.name,String(e?.message||"").slice(0,180));return reply({error:"Password hashing failed ("+String(e?.name||"Error").slice(0,50)+"). Please report this error.",code:"PASSWORD_HASH_FAILED"},503)}stage="account_insert";
  try{await db.prepare("INSERT INTO accounts (id,username,salt,password_hash,created_at) VALUES (?,?,?,?,?)").bind(id,username,salt,hash,new Date().toISOString()).run()}catch{return reply({error:"Username unavailable"},409)}
  a={id,username};stage="profile_insert";await db.prepare("INSERT INTO profiles (account_id,revision,data) VALUES (?,0,?)").bind(id,JSON.stringify(compact({}))).run();
  }else{
